@@ -28,7 +28,7 @@ typedef struct MyJSON_Array {
 
 typedef struct MyJSON_Object {
     uint8_t type;
-    struct {
+    union {
         bool boolean;
         double number;
         char* string;
@@ -39,42 +39,43 @@ typedef struct MyJSON_Object {
 
 void MyJSON_free(MyJSON_Object *object);
 void MyJSON_ignorewhitespace(const char* const, const char*);
+bool MyJSON_parseObject(const char* const, MyJSON_Object*, const char**);
 
-static bool MyJSON_parseNull(const char *const serialized, MyJSON_Object *object, const char* endparse) {
+static bool MyJSON_parseNull(const char *const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
         return 0;
     }
 
     if(memcmp(serialized, "null", 4) == 0) {
-        endparse = serialized + 4;
+        *endparse = serialized + 4;
     }
 
-    return endparse > serialized;
+    return *endparse > serialized;
 }
 
-static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const char* endparse) {
+static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const char** endparse) {
     if(memcmp(serialized, "true", 4) == 0) {
-        endparse = serialized + 4;
+        *endparse = serialized + 4;
         *boolean = true;
     } else if(memcmp(serialized, "false", 5) == 0) {
-        endparse = serialized + 5;
+        *endparse = serialized + 5;
         *boolean = false;
     }
 
-    return endparse > serialized;
+    return *endparse > serialized;
 }
 
-static bool MyJSON_parseNumber(const char* const serialized, double* number, const char* endparse) {
+static bool MyJSON_parseNumber(const char* const serialized, double* number, const char** endparse) {
     //TODO: everything lol
 
-    return endparse > serialized;
+    return *endparse > serialized;
 }
 
-static bool MyJSON_parseString(const char* const serialized, char *object, const char* endparse) {
-    return endparse > serialized;
+static bool MyJSON_parseString(const char* const serialized, char *object, const char** endparse) {
+    return *endparse > serialized;
 }
 
-static bool MyJSON_parseLiteral(const char* const serialized, MyJSON_Object *object, const char* endparse) {
+static bool MyJSON_parseLiteral(const char* const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
         return false;
     }
@@ -101,7 +102,7 @@ static bool MyJSON_parseLiteral(const char* const serialized, MyJSON_Object *obj
     return false;
 }
 
-static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *object, const char* endparse) {
+static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
         return 0;
     }
@@ -111,23 +112,31 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
     }
 
     object->type = MyJSON_array;
-    object->array = malloc(sizeof(*(object->array)));
+    MyJSON_Array *array = malloc(sizeof(*array));
+    array->array = malloc(sizeof(*(array->array)) * 5);
+    object->array = array;
 
     const char* ptr = serialized + 1;
     while(*ptr != ']') {
         if(*ptr == '\0') {
-            free(object->array);
+            free(array);
             return 0;
         }
 
-        ptr++;
-    }
-    endparse = ptr + 1;
+        /*MyJSON_Object element = {};
+        bool result = MyJSON_parseObject(ptr, &element, endparse);
 
-    return endparse > serialized;
+        if(result) {
+            array->array[array->size++] = element;
+            ptr = *endparse;
+        }*/
+    }
+    *endparse = ptr + 1;
+
+    return *endparse > serialized;
 }
 
-static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object, const char* endparse) {
+static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
         return 0;
     }
@@ -148,19 +157,24 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
 
         ptr++;
     }
-    endparse = ptr + 1;
+    *endparse = ptr + 1;
 
-    return endparse > serialized;
+    return *endparse > serialized;
+}
+
+bool MyJSON_parseObject(const char* const serialized, MyJSON_Object *object, const char** endparse) {
+    return (
+        MyJSON_parseLiteral(serialized, object, endparse) ||
+        MyJSON_parseArray(serialized, object, endparse) ||
+        MyJSON_parseDict(serialized, object, endparse)
+    );
 }
 
 MyJSON_Object* MyJSON_parse(const char* const serialized) {
     MyJSON_Object *object = malloc(sizeof(*object));
-    char* endpointer;
-    bool result = (
-        MyJSON_parseLiteral(serialized, object, endpointer) ||
-        MyJSON_parseArray(serialized, object, endpointer) ||
-        MyJSON_parseDict(serialized, object, endpointer)
-    );
+    const char *endparse;
+
+    bool result = MyJSON_parseObject(serialized, object, &endparse);
 
     if(!result) {
         return NULL;
@@ -197,6 +211,13 @@ int main(void) {
     assert(object != NULL);
     assert(object->type == MyJSON_array);
     assert(object->array->size == 0);
+
+    /*object = MyJSON_parse("[true]");
+    assert(object != NULL);
+    assert(object->type == MyJSON_array);
+    assert(object->array->size == 1);
+    assert(object->array->array[0].type == MyJSON_boolean);
+    assert(object->array->array[0].boolean == true);*/
 }
 
 #endif
