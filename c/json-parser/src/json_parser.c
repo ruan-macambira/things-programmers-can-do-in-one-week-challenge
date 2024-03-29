@@ -1,19 +1,9 @@
-#ifndef MYJSON_PARSER
-#define MYJSON_PARSER
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 
-enum MyJSON_type {
-    MyJSON_null,
-    MyJSON_boolean,
-    MyJSON_number,
-    MyJSON_string,
-    MyJSON_array,
-    MyJSON_dict
-};
+#include "json_parser.h"
 
 typedef struct MyJSON_Dict {
     uint32_t size;
@@ -34,8 +24,73 @@ typedef struct MyJSON_Object {
         char* string;
         MyJSON_Array* array;
         MyJSON_Dict* dict;
+
+        void* any;
     };
 } MyJSON_Object;
+
+void MyJSON_free(MyJSON_Object *source) {
+    switch(source->type) {
+    case MyJSON_array:
+        break;
+    case MyJSON_dict:
+        break;
+    case MyJSON_string:
+        break;
+    default:
+        break;
+    }
+
+    free(source);
+}
+
+enum MyJSON_type MyJSON_type(const MyJSON_Object *source) {
+    return source->type;
+}
+
+bool MyJSON_isNull(const MyJSON_Object *source) {
+    return source->type == MyJSON_null;
+}
+
+bool MyJSON_getBoolean(const MyJSON_Object *source) {
+    return source->boolean;
+}
+
+double MyJSON_getNumber(const MyJSON_Object *source) {
+    return source->number;
+}
+
+const char* MyJSON_getString(const MyJSON_Object *source) {
+    return source->string;
+}
+
+size_t MyJSON_getArraySize(const MyJSON_Object *source) {
+    return source->array->size;
+}
+
+MyJSON_Object* MyJSON_getArrayElement(MyJSON_Object *source, size_t index) {
+    return source->array->array + index;
+}
+
+size_t MyJSON_getDictSize(const MyJSON_Object *source) {
+    return source->dict->size;
+}
+
+MyJSON_Object* MyJSON_getDictElement(MyJSON_Object *source, const char const *key) {
+    const size_t keylen = strlen(key);
+    
+    for(int i=0; i < source->dict->size; ++i) {
+        const char* const keytest = source->dict->keys[i];
+        if(strlen(keytest) != keylen) {
+            continue;
+        }
+        if(memcmp(key, keytest, keylen) == 0) {
+            return source->dict->values + i;
+        }
+    }
+
+    return NULL;
+}
 
 void MyJSON_free(MyJSON_Object *object);
 void MyJSON_ignorewhitespace(const char* const, const char*);
@@ -43,7 +98,7 @@ bool MyJSON_parseObject(const char* const, MyJSON_Object*, const char**);
 
 static bool MyJSON_parseNull(const char *const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
-        return 0;
+        return false;
     }
 
     if(memcmp(serialized, "null", 4) == 0) {
@@ -112,8 +167,8 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
     }
 
     object->type = MyJSON_array;
-    MyJSON_Array *array = malloc(sizeof(*array));
-    array->array = malloc(sizeof(*(array->array)) * 5);
+    MyJSON_Array *array = calloc(1, sizeof(*array));
+    array->array = calloc(5, sizeof(*(array->array)));
     object->array = array;
 
     const char* ptr = serialized + 1;
@@ -158,7 +213,7 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
     }
 
     object->type = MyJSON_dict;
-    object->dict = malloc(sizeof(*(object->dict)));
+    object->dict = calloc(1, sizeof(*(object->dict)));
 
     const char* ptr = serialized + 1;
     while(*ptr != '}') {
@@ -184,7 +239,7 @@ bool MyJSON_parseObject(const char* const serialized, MyJSON_Object *object, con
 
 MyJSON_Object* MyJSON_parse(const char* const serialized) {
     MyJSON_Object *object = malloc(sizeof(*object));
-    const char *endparse;
+    const char *endparse = NULL;
 
     bool result = MyJSON_parseObject(serialized, object, &endparse);
 
@@ -194,64 +249,3 @@ MyJSON_Object* MyJSON_parse(const char* const serialized) {
 
     return object;
 }
-
-#include <assert.h>
-#include <stdio.h>
-int main(void) {
-    MyJSON_Object* object;
-
-    object = MyJSON_parse("null");
-    assert(object != NULL);
-    assert(object->type == MyJSON_null);
-
-    object = MyJSON_parse("true");
-    assert(object != NULL);
-    assert(object->type == MyJSON_boolean);
-    assert(object->boolean == true);
-    
-    object = MyJSON_parse("false");
-    assert(object != NULL);
-    assert(object->type == MyJSON_boolean);
-    assert(object->boolean == false);
-
-    object = MyJSON_parse("{}");
-    assert(object != NULL);
-    assert(object->type == MyJSON_dict);
-    assert(object->dict->size == 0);
-
-    object = MyJSON_parse("[]");
-    assert(object != NULL);
-    assert(object->type == MyJSON_array);
-    assert(object->array->size == 0);
-
-    object = MyJSON_parse("[true]");
-    assert(object != NULL);
-    assert(object->type == MyJSON_array);
-    assert(object->array->size == 1);
-    assert(object->array->array[0].type == MyJSON_boolean);
-    assert(object->array->array[0].boolean == true);
-
-    object = MyJSON_parse("[false,true]");
-    assert(object != NULL);
-    assert(object->type == MyJSON_array);
-    assert(object->array->size == 2);
-    assert(object->array->array[0].type == MyJSON_boolean);
-    assert(object->array->array[0].boolean == false);
-    assert(object->array->array[1].type == MyJSON_boolean);
-    assert(object->array->array[1].boolean == true);
-
-    return 0;
-
-    object = MyJSON_parse("[false,{}]");
-    assert(object != NULL);
-    assert(object->type == MyJSON_array);
-    assert(object->array->size == 2);
-    assert(object->array->array[0].type == MyJSON_boolean);
-    assert(object->array->array[0].boolean == false);
-    assert(object->array->array[1].type == MyJSON_dict);
-    assert(object->array->array[1].dict->size == 0);
-
-    return 0;
-}
-
-#endif
