@@ -76,10 +76,10 @@ size_t MyJSON_getDictSize(const MyJSON_Object *source) {
     return source->dict->size;
 }
 
-MyJSON_Object* MyJSON_getDictElement(MyJSON_Object *source, const char const *key) {
+MyJSON_Object* MyJSON_getDictElement(MyJSON_Object *source, const char *const key) {
     const size_t keylen = strlen(key);
     
-    for(int i=0; i < source->dict->size; ++i) {
+    for(size_t i=0; i < source->dict->size; ++i) {
         const char* const keytest = source->dict->keys[i];
         if(strlen(keytest) != keylen) {
             continue;
@@ -121,12 +121,50 @@ static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const 
 }
 
 static bool MyJSON_parseNumber(const char* const serialized, double* number, const char** endparse) {
-    //TODO: everything lol
+    *number = 0;
 
     return *endparse > serialized;
 }
 
-static bool MyJSON_parseString(const char* const serialized, char *object, const char** endparse) {
+#define DEFAULT_STRING_SIZE 256
+static bool MyJSON_parseString(const char* const serialized, char** string, const char** endparse) {
+    if(serialized[0] != '\"') {
+        return false;
+    }
+
+    *string = malloc(sizeof(**string) * DEFAULT_STRING_SIZE);
+    size_t length = 0;
+
+    bool escaped = false;
+    const char *ptr = serialized + 1;
+    while(*ptr != '\0') {
+        if(*ptr == '\\') {
+            escaped = true;
+            ptr++;
+            continue;
+        }
+
+        if(escaped) {
+            switch(*ptr) {
+            case '\\':
+                break;
+            default:
+                break;
+            }
+            escaped = false;
+            ptr++;
+        }
+
+        if(*ptr == '\"') {
+            (*string)[length] = '\0';
+            *endparse = ptr + 1;
+            *string = realloc(*string, length+1);
+            break;
+        }
+
+        (*string)[length++] = *ptr;
+        ptr++;
+    }
     return *endparse > serialized;
 }
 
@@ -149,7 +187,7 @@ static bool MyJSON_parseLiteral(const char* const serialized, MyJSON_Object *obj
         return true;
     }
 
-    if(MyJSON_parseString(serialized, (object->string), endparse)) {
+    if(MyJSON_parseString(serialized, &(object->string), endparse)) {
         object->type = MyJSON_string;
         return true;
     }
