@@ -119,21 +119,33 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
     const char* ptr = serialized + 1;
     while(*ptr != ']') {
         if(*ptr == '\0') {
-            free(array);
-            return 0;
+            goto arrayParseError;
         }
 
-        /*MyJSON_Object element = {};
+        MyJSON_Object element = {};
         bool result = MyJSON_parseObject(ptr, &element, endparse);
 
         if(result) {
             array->array[array->size++] = element;
             ptr = *endparse;
-        }*/
+        } else {
+            goto arrayParseError;
+        }
+
+        if(*ptr != ']' && *ptr != ',') {
+            goto arrayParseError;
+        }
+
+        if(*ptr == ',') ptr++;
     }
     *endparse = ptr + 1;
 
     return *endparse > serialized;
+
+    arrayParseError:
+        free(array->array);
+        free(array);
+        return 0;
 }
 
 static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object, const char** endparse) {
@@ -212,12 +224,34 @@ int main(void) {
     assert(object->type == MyJSON_array);
     assert(object->array->size == 0);
 
-    /*object = MyJSON_parse("[true]");
+    object = MyJSON_parse("[true]");
     assert(object != NULL);
     assert(object->type == MyJSON_array);
     assert(object->array->size == 1);
     assert(object->array->array[0].type == MyJSON_boolean);
-    assert(object->array->array[0].boolean == true);*/
+    assert(object->array->array[0].boolean == true);
+
+    object = MyJSON_parse("[false,true]");
+    assert(object != NULL);
+    assert(object->type == MyJSON_array);
+    assert(object->array->size == 2);
+    assert(object->array->array[0].type == MyJSON_boolean);
+    assert(object->array->array[0].boolean == false);
+    assert(object->array->array[1].type == MyJSON_boolean);
+    assert(object->array->array[1].boolean == true);
+
+    return 0;
+
+    object = MyJSON_parse("[false,{}]");
+    assert(object != NULL);
+    assert(object->type == MyJSON_array);
+    assert(object->array->size == 2);
+    assert(object->array->array[0].type == MyJSON_boolean);
+    assert(object->array->array[0].boolean == false);
+    assert(object->array->array[1].type == MyJSON_dict);
+    assert(object->array->array[1].dict->size == 0);
+
+    return 0;
 }
 
 #endif
