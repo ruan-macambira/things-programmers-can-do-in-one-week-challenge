@@ -133,29 +133,72 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
     }
 
     *string = malloc(sizeof(**string) * DEFAULT_STRING_SIZE);
-    size_t length = 0;
+    size_t length = 0, unicode_i, unicode_chr;
 
-    bool escaped = false;
+    bool escaped = false, unicode = false;
     const char *ptr = serialized + 1;
     while(*ptr != '\0') {
-        if(*ptr == '\\') {
+        if(unicode) {
+            if(++unicode_i > 4) {
+                strncpy((*string) + length, (const char*)&unicode_chr, 1);
+                *endparse = ptr + 1;
+                *string = realloc(*string, length+1);
+                goto stringParseEnd;
+            }
+
+            switch(*ptr) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                unicode_chr = (unicode_chr << 4) + (*ptr - '0');
+                break;
+            case 'A':
+            case 'B':
+            case 'C':
+            case 'D':
+            case 'E':
+            case 'F':
+                unicode_chr = (unicode_chr << 4) + (*ptr - 'A' + 10);
+                break;
+            default:
+                goto stringParseError;
+            }
+            ptr++;
+            continue;
+        } else if(*ptr == '\\') {
             escaped = true;
             ptr++;
             continue;
-        }
-
-        if(escaped) {
+        } else if(escaped) {
             switch(*ptr) {
-            case '\\':
+            case 0x22:
+            case 0x5c:
+            case 0x2f:
+            case 0x62:
+            case 0x66:
+            case 0x6e:
+            case 0x72:
+            case 0x74:
                 break;
+            case 0x75:
+                unicode = true;
+                unicode_i = 0;
+                unicode_chr = 0;
+                ptr++;
+                continue;
             default:
+                goto stringParseError;
                 break;
             }
             escaped = false;
-            ptr++;
-        }
-
-        if(*ptr == '\"') {
+        } else if(*ptr == '\"') {
             (*string)[length] = '\0';
             *endparse = ptr + 1;
             *string = realloc(*string, length+1);
@@ -165,7 +208,16 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
         (*string)[length++] = *ptr;
         ptr++;
     }
-    return *endparse > serialized;
+
+    stringParseEnd:
+        if(*endparse > serialized) {
+            return true;
+        }
+
+    stringParseError:
+        free(*string);
+        *string = NULL;
+        return false;
 }
 
 static bool MyJSON_parseLiteral(const char* const serialized, MyJSON_Object *object, const char** endparse) {

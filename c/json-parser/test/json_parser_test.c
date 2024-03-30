@@ -33,6 +33,22 @@ Test(JSON_Parse_String, NoEscapeString) {
     cr_assert_str_eq(MyJSON_getString(object), "foobar");
 }
 
+Test(JSON_Parse_String, EscapedString) {
+    MyJSON_Object *object = MyJSON_parse("\"foobar\\\"\"");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_string);
+    cr_assert_str_eq(MyJSON_getString(object), "foobar\"");
+}
+
+Test(JSON_Parse_String, EscapedUnicode) {
+    MyJSON_Object *object = MyJSON_parse("\"foobar\\u0075\"");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_string);
+    cr_assert_str_eq(MyJSON_getString(object), "foobaru");
+}
+
 Test(JSON_Parse_Array, EmptyArray) {
     MyJSON_Object *object = MyJSON_parse("[]");
     cr_assert_not_null(object);
