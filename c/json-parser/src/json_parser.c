@@ -147,24 +147,13 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
             }
 
             switch(*ptr) {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
+            case '0': case '1': case '2': case '3':
+            case '4': case '5': case '6': case '7':
+            case '8': case '9':
                 unicode_chr = (unicode_chr << 4) + (*ptr - '0');
                 break;
-            case 'A':
-            case 'B':
-            case 'C':
-            case 'D':
-            case 'E':
-            case 'F':
+            case 'A': case 'B': case 'C':
+            case 'D': case 'E': case 'F':
                 unicode_chr = (unicode_chr << 4) + (*ptr - 'A' + 10);
                 break;
             default:
@@ -303,20 +292,52 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
     }
 
     object->type = MyJSON_dict;
-    object->dict = calloc(1, sizeof(*(object->dict)));
+    MyJSON_Dict *dict = calloc(1, sizeof(*dict));
+    dict->keys = calloc(5, sizeof(*(dict->keys)));
+    dict->values = calloc(5, sizeof(*(dict->values)));
+    object->dict = dict;
 
-    const char* ptr = serialized + 1;
+    const char* ptr = serialized + 1, *ptr_next;
     while(*ptr != '}') {
         if(*ptr == '\0') {
-            free(object->dict);
-            return 0;
+            goto parseDictError;
         }
 
-        ptr++;
+        bool key_success = MyJSON_parseString(ptr, &(dict->keys[dict->size]), &ptr_next);
+        if(!key_success) {
+            goto parseDictError;
+        }
+
+        ptr = ptr_next;
+        if(*ptr_next!= ':') {
+            goto parseDictError;
+        }
+        ptr = ptr_next+1;
+
+        bool value_success = MyJSON_parseObject(ptr, &(dict->values[dict->size]), &ptr_next);
+        if(!value_success) {
+            goto parseDictError;
+        }
+        dict->size++;
+        ptr = ptr_next;
+
+        if(*ptr != '}' && *ptr != ',') {
+            goto parseDictError;
+        }
+
+        if(*ptr == ',') {
+            ++ptr;
+        }
     }
     *endparse = ptr + 1;
 
     return *endparse > serialized;
+
+    parseDictError:
+        free(dict->keys);
+        free(dict->values);
+        free(dict);
+        return false;
 }
 
 bool MyJSON_parseObject(const char* const serialized, MyJSON_Object *object, const char** endparse) {

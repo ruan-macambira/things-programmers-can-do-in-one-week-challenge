@@ -82,3 +82,12 @@ Test(JSON_Parse_Object, Empty) {
     cr_assert_eq(MyJSON_type(object), MyJSON_dict, "%d != %d", MyJSON_type(object), MyJSON_dict);
     cr_assert_eq(object_dict_size, 0, "MyJSON_getDictSize: %d != %d", object_dict_size, 0);
 }
+
+Test(JSON_Parse_Object, OneKey) {
+    MyJSON_Object *object = MyJSON_parse("{\"foo\":\"bar\"}");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_dict);
+    MyJSON_Object *v = MyJSON_getDictElement(object, "foo");
+    cr_assert_str_eq(MyJSON_getString(v), "bar");
+}
