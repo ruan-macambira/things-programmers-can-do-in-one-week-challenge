@@ -121,8 +121,46 @@ static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const 
 }
 
 static bool MyJSON_parseNumber(const char* const serialized, double* number, const char** endparse) {
-    *number = 0;
+    double signal = 1;
+    double total = 0;
 
+    const char* ptr = serialized;
+    if(*ptr == '-') {
+        signal = -1;
+        ptr++;
+    }
+
+    if(*ptr == '0') {
+        *number = 0;
+        *endparse = ptr+1;
+        return true;
+    } else if(*ptr < '1' || *ptr > '9') {
+        return false;
+    }
+
+    while(*ptr >= '0' && *ptr <= '9') {
+        total *= 10;
+        total += *ptr - '0';
+        ptr++;
+    }
+
+    if(*ptr == '.') {
+        ptr++;
+        if(*ptr <= '0' || *ptr >= '9') {
+            return false;
+        }
+
+        double power = 1;
+        while(*ptr >= '0' && *ptr <= '9') {
+            power /= 10;
+            total += (*ptr - '0') * power;
+            ptr++;
+        }
+    }
+
+    total *= signal;
+    *number = total;
+    *endparse = ptr + 1;
     return *endparse > serialized;
 }
 

@@ -91,3 +91,43 @@ Test(JSON_Parse_Object, OneKey) {
     MyJSON_Object *v = MyJSON_getDictElement(object, "foo");
     cr_assert_str_eq(MyJSON_getString(v), "bar");
 }
+
+Test(JSON_Parse_Number, Zero) {
+    MyJSON_Object *object = MyJSON_parse("0");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_number);
+    cr_assert_eq(MyJSON_getNumber(object), 0);
+}
+
+Test(JSON_Parse_Number, NonZero_Positive) {
+    MyJSON_Object *object = MyJSON_parse("11");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_number);
+    cr_assert_eq(MyJSON_getNumber(object), 11);
+}
+
+Test(JSON_Parse_Number, NonZero_Negative) {
+    MyJSON_Object *object = MyJSON_parse("-11");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_number);
+    cr_assert_eq(MyJSON_getNumber(object), -11);
+}
+
+Test(JSON_Parse_Number, Decimal_Positive) {
+    MyJSON_Object *object = MyJSON_parse("1.5");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_number);
+    cr_assert_eq(MyJSON_getNumber(object), 1.5);
+}
+
+Test(JSON_Parse_Number, Decimal_Negative) {
+    MyJSON_Object *object = MyJSON_parse("-7.5");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_number);
+    cr_assert_eq(MyJSON_getNumber(object), -7.5);
+}
