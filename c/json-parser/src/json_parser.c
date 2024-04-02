@@ -5,14 +5,19 @@
 
 #include "json_parser.h"
 
+#define CONTAINER_DEFAULT_SIZE 5
+#define CONTAINER_DEFAULT_GROWTH 1.5
+#define DEFAULT_STRING_SIZE 256
+
 typedef struct MyJSON_Dict {
     uint32_t size;
-    char** keys;
-    struct MyJSON_Object* values;
+    uint32_t maxsize;
+    struct MyJSON_DictElement *container;
 } MyJSON_Dict;
 
 typedef struct MyJSON_Array {
     uint32_t size;
+    uint32_t maxsize;
     struct MyJSON_Object *array;
 } MyJSON_Array;
 
@@ -28,6 +33,59 @@ typedef struct MyJSON_Object {
         void* any;
     };
 } MyJSON_Object;
+
+typedef struct MyJSON_DictElement {
+    char *key;
+    MyJSON_Object value;
+} MyJSON_DictElement;
+
+static MyJSON_Array* MyJSON_ArrayInit(void) {
+    MyJSON_Array *array = calloc(1, sizeof *array);
+    array->maxsize = CONTAINER_DEFAULT_SIZE;
+    array->array = calloc(CONTAINER_DEFAULT_SIZE, sizeof *(array->array));
+
+    return array;
+}
+
+static MyJSON_Object* MyJSON_ArrayAllocate(MyJSON_Array *array) {
+    if(array->size == array->maxsize) {
+        uint32_t new_maxsize = (array->size) * CONTAINER_DEFAULT_GROWTH;
+        array->maxsize = new_maxsize;
+        array->array = realloc(array->array, sizeof(*(array->array)) * new_maxsize);
+    }
+
+    return &(array->array[array->size++]);
+}
+
+void MyJSON_ArrayFree(MyJSON_Array *array) {
+    free(array->array);
+    free(array);
+}
+
+MyJSON_Dict* MyJSON_DictInit(void) {
+    MyJSON_Dict *dict = calloc(1, sizeof *dict);
+    dict->maxsize = CONTAINER_DEFAULT_SIZE;
+    dict->container = calloc(CONTAINER_DEFAULT_SIZE, sizeof *(dict->container));
+    return dict;
+}
+
+MyJSON_DictElement* MyJSON_DictAllocate(MyJSON_Dict *dict) {
+    if(dict->size == dict->maxsize) {
+        uint32_t new_maxsize = (dict->size) * CONTAINER_DEFAULT_GROWTH;
+        dict->maxsize = new_maxsize;
+        dict->container = realloc(dict->container, sizeof(*(dict->container)) * new_maxsize);
+    }
+
+    return &(dict->container[dict->size++]);
+}
+
+void MyJSON_DictFree(MyJSON_Dict *dict) {
+    for(uint32_t i=0; i<dict->size; i++) {
+        free(dict->container[i].key);
+    }
+    free(dict->container);
+    free(dict);
+}
 
 void MyJSON_free(MyJSON_Object *source) {
     switch(source->type) {
@@ -80,12 +138,12 @@ MyJSON_Object* MyJSON_getDictElement(MyJSON_Object *source, const char *const ke
     const size_t keylen = strlen(key);
     
     for(size_t i=0; i < source->dict->size; ++i) {
-        const char* const keytest = source->dict->keys[i];
+        const char* const keytest = source->dict->container[i].key;
         if(strlen(keytest) != keylen) {
             continue;
         }
         if(memcmp(key, keytest, keylen) == 0) {
-            return source->dict->values + i;
+            return &(source->dict->container[i].value);
         }
     }
 
@@ -160,11 +218,10 @@ static bool MyJSON_parseNumber(const char* const serialized, double* number, con
 
     total *= signal;
     *number = total;
-    *endparse = ptr + 1;
+    *endparse = ptr;
     return *endparse > serialized;
 }
 
-#define DEFAULT_STRING_SIZE 256
 static bool MyJSON_parseString(const char* const serialized, char** string, const char** endparse) {
     if(serialized[0] != '\"') {
         return false;
@@ -284,8 +341,7 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
     }
 
     object->type = MyJSON_array;
-    MyJSON_Array *array = calloc(1, sizeof(*array));
-    array->array = calloc(5, sizeof(*(array->array)));
+    MyJSON_Array *array = MyJSON_ArrayInit();
     object->array = array;
 
     const char* ptr = serialized + 1;
@@ -294,11 +350,10 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
             goto arrayParseError;
         }
 
-        MyJSON_Object element = {};
-        bool result = MyJSON_parseObject(ptr, &element, endparse);
+        MyJSON_Object* element =  MyJSON_ArrayAllocate(array);
+        bool result = MyJSON_parseObject(ptr, element, endparse);
 
         if(result) {
-            array->array[array->size++] = element;
             ptr = *endparse;
         } else {
             goto arrayParseError;
@@ -330,9 +385,7 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
     }
 
     object->type = MyJSON_dict;
-    MyJSON_Dict *dict = calloc(1, sizeof(*dict));
-    dict->keys = calloc(5, sizeof(*(dict->keys)));
-    dict->values = calloc(5, sizeof(*(dict->values)));
+    MyJSON_Dict *dict = MyJSON_DictInit();
     object->dict = dict;
 
     const char* ptr = serialized + 1, *ptr_next;
@@ -341,7 +394,8 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
             goto parseDictError;
         }
 
-        bool key_success = MyJSON_parseString(ptr, &(dict->keys[dict->size]), &ptr_next);
+        MyJSON_DictElement *pair = MyJSON_DictAllocate(dict);
+        bool key_success = MyJSON_parseString(ptr, &(pair->key), &ptr_next);
         if(!key_success) {
             goto parseDictError;
         }
@@ -352,11 +406,10 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
         }
         ptr = ptr_next+1;
 
-        bool value_success = MyJSON_parseObject(ptr, &(dict->values[dict->size]), &ptr_next);
+        bool value_success = MyJSON_parseObject(ptr, &(pair->value), &ptr_next);
         if(!value_success) {
             goto parseDictError;
         }
-        dict->size++;
         ptr = ptr_next;
 
         if(*ptr != '}' && *ptr != ',') {
@@ -372,8 +425,7 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
     return *endparse > serialized;
 
     parseDictError:
-        free(dict->keys);
-        free(dict->values);
+        free(dict->container);
         free(dict);
         return false;
 }

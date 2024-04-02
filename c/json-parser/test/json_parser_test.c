@@ -74,6 +74,14 @@ Test(JSON_Parse_Array, TwoElements) {
     cr_assert_eq(MyJSON_type(MyJSON_getArrayElement(object, 1)), MyJSON_dict);
 }
 
+Test(JSON_Parse_Array, Grow) {
+    MyJSON_Object *object = MyJSON_parse("[1,-1,true,{},[],\"foo\",null,false]");
+    cr_assert_not_null(object);
+
+    cr_assert_eq(MyJSON_type(object), MyJSON_array, "%d != %d", MyJSON_type(object), MyJSON_array);
+    cr_assert_eq(MyJSON_getArraySize(object), 8);
+}
+
 Test(JSON_Parse_Object, Empty) {
     MyJSON_Object *object = MyJSON_parse("{}");
     cr_assert_not_null(object);
