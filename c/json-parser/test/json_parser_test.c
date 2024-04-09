@@ -50,13 +50,13 @@ Test(JSON_Parse_String, EscapedUnicode) {
 }
 
 Test(JSON_Parse_Array, EmptyArray) {
-    MyJSON_Object *object = MyJSON_parse("[]");
+    MyJSON_Object *object = MyJSON_parse("[    ]");
     cr_assert_not_null(object);
     cr_assert_eq(MyJSON_type(object), MyJSON_array, "%d != %d", MyJSON_type(object), MyJSON_array);
 }
 
 Test(JSON_Parse_Array, SingleElement) {
-    MyJSON_Object *object = MyJSON_parse("[true]");
+    MyJSON_Object *object = MyJSON_parse("[ true ]");
     cr_assert_not_null(object);
 
     size_t object_array_size = MyJSON_getArraySize(object);
@@ -65,7 +65,7 @@ Test(JSON_Parse_Array, SingleElement) {
 }
 
 Test(JSON_Parse_Array, TwoElements) {
-    MyJSON_Object *object = MyJSON_parse("[true,{}]");
+    MyJSON_Object *object = MyJSON_parse("[ true , { } ]");
     cr_assert_not_null(object);
 
     size_t object_array_size = MyJSON_getArraySize(object);
@@ -75,7 +75,7 @@ Test(JSON_Parse_Array, TwoElements) {
 }
 
 Test(JSON_Parse_Array, Grow) {
-    MyJSON_Object *object = MyJSON_parse("[1,-1,1.5,true,{},[],\"foo\",null,false]");
+    MyJSON_Object *object = MyJSON_parse("[1, -1, 1.5, true, {}, [], \"foo\", null, false]");
     cr_assert_not_null(object);
 
     cr_assert_eq(MyJSON_type(object), MyJSON_array, "%d != %d", MyJSON_type(object), MyJSON_array);
@@ -92,7 +92,7 @@ Test(JSON_Parse_Object, Empty) {
 }
 
 Test(JSON_Parse_Object, OneKey) {
-    MyJSON_Object *object = MyJSON_parse("{\"foo\":\"bar\"}");
+    MyJSON_Object *object = MyJSON_parse("{\"foo\": \"bar\"}");
     cr_assert_not_null(object);
 
     cr_assert_eq(MyJSON_type(object), MyJSON_dict);
@@ -141,7 +141,7 @@ Test(JSON_Parse_Number, Decimal_Negative) {
 }
 
 Test(JSON_Parse_General, Nesting) {
-    MyJSON_Object *object = MyJSON_parse("[{\"foo\":1,\"bar\":true},\"testing:\\\"true\\\"\"]");
+    MyJSON_Object *object = MyJSON_parse("[{\"foo\": 1, \"bar\": true}, \"testing:\\\"true\\\"\"]");
     cr_assert_not_null(object);
 
     cr_assert_eq(MyJSON_type(object), MyJSON_array);

@@ -154,28 +154,50 @@ MyJSON_Object* MyJSON_getDictElement(MyJSON_Object *source, const char *const ke
     return NULL;
 }
 
-void MyJSON_free(MyJSON_Object *object);
-void MyJSON_ignorewhitespace(const char* const, const char*);
 bool MyJSON_parseObject(const char* const, MyJSON_Object*, const char**);
+
+static bool MyJSON_ignorewhitespace(const char* const serialized, const char** endparse) {
+    const char *ptr = serialized;
+    while(*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n') {
+        ptr++;
+    }
+
+    if(*ptr != '\0') {
+        *endparse = ptr;
+        return true;
+    }
+
+    return false;
+}
 
 static bool MyJSON_parseNull(const char *const serialized, MyJSON_Object *object, const char** endparse) {
     if(object->type != MyJSON_null) {
         return false;
     }
 
-    if(memcmp(serialized, "null", 4) == 0) {
-        *endparse = serialized + 4;
+    const char *ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
+    if(memcmp(ptr, "null", 4) == 0) {
+        *endparse = ptr + 4;
     }
 
     return *endparse > serialized;
 }
 
 static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const char** endparse) {
-    if(memcmp(serialized, "true", 4) == 0) {
-        *endparse = serialized + 4;
+    const char *ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
+    if(memcmp(ptr, "true", 4) == 0) {
+        *endparse = ptr + 4;
         *boolean = true;
-    } else if(memcmp(serialized, "false", 5) == 0) {
-        *endparse = serialized + 5;
+    } else if(memcmp(ptr, "false", 5) == 0) {
+        *endparse = ptr + 5;
         *boolean = false;
     }
 
@@ -187,6 +209,10 @@ static bool MyJSON_parseNumber(const char* const serialized, double* number, con
     double total = 0;
 
     const char* ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
     if(*ptr == '-') {
         signal = -1;
         ptr++;
@@ -227,7 +253,12 @@ static bool MyJSON_parseNumber(const char* const serialized, double* number, con
 }
 
 static bool MyJSON_parseString(const char* const serialized, char** string, const char** endparse) {
-    if(serialized[0] != '\"') {
+    const char *ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
+    if(*ptr != '\"') {
         return false;
     }
 
@@ -235,7 +266,7 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
     size_t length = 0, unicode_i, unicode_chr;
 
     bool escaped = false, unicode = false;
-    const char *ptr = serialized + 1;
+    ++ptr;
     while(*ptr != '\0') {
         if(unicode) {
             if(++unicode_i > 4) {
@@ -340,16 +371,32 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
         return 0;
     }
 
-    if(*serialized != '[') {
+    const char *ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
+    if(*ptr != '[') {
         return 0;
     }
 
     object->type = MyJSON_array;
     MyJSON_Array *array = MyJSON_ArrayInit();
     object->array = array;
+    ++ptr;
 
-    const char* ptr = serialized + 1;
+    const char *ptr_next;
+    if(!MyJSON_ignorewhitespace(ptr, &ptr_next)) {
+        goto arrayParseError;
+    }
+    ptr = ptr_next;
+
     while(*ptr != ']') {
+        if(!MyJSON_ignorewhitespace(ptr, &ptr_next)) {
+            goto arrayParseError;
+        }
+        ptr = ptr_next;
+
         if(*ptr == '\0') {
             goto arrayParseError;
         }
@@ -362,6 +409,11 @@ static bool MyJSON_parseArray(const char* const serialized, MyJSON_Object *objec
         } else {
             goto arrayParseError;
         }
+
+        if(!MyJSON_ignorewhitespace(ptr, &ptr_next)) {
+            goto arrayParseError;
+        }
+        ptr = ptr_next;
 
         if(*ptr != ']' && *ptr != ',') {
             goto arrayParseError;
@@ -384,15 +436,26 @@ static bool MyJSON_parseDict(const char* const serialized, MyJSON_Object *object
         return 0;
     }
 
-    if(*serialized != '{') {
+    const char *ptr = serialized;
+    if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
+        return false;
+    }
+
+    if(*ptr != '{') {
         return 0;
     }
 
     object->type = MyJSON_dict;
     MyJSON_Dict *dict = MyJSON_DictInit();
     object->dict = dict;
+    ++ptr;
 
-    const char* ptr = serialized + 1, *ptr_next;
+    const char *ptr_next;
+    if(!MyJSON_ignorewhitespace(ptr, &ptr_next)) {
+        goto parseDictError;
+    }
+
+    ptr = ptr_next;
     while(*ptr != '}') {
         if(*ptr == '\0') {
             goto parseDictError;
