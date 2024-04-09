@@ -1,5 +1,5 @@
 mkdir -p obj
-gcc -o obj/json_parser.o -Wall -Wextra -c -g src/json_parser.c -I"./lib/"
+gcc -o obj/json_parser.o -Wall -Wextra -c -g3 src/json_parser.c -I"./lib/"
 gcc -Wall -Wextra -g -o obj/test test/json_parser_test.c obj/json_parser.o -I"./lib/" -lcriterion
 
 if [[ $? -ne 0 ]]; then

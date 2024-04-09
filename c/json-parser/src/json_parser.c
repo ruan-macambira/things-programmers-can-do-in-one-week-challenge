@@ -54,32 +54,36 @@ static MyJSON_Object* MyJSON_ArrayAllocate(MyJSON_Array *array) {
         array->array = realloc(array->array, sizeof(*(array->array)) * new_maxsize);
     }
 
-    return &(array->array[array->size++]);
+    MyJSON_Object *allocated =  &(array->array[array->size++]);
+    memset(allocated, 0, sizeof(*allocated));
+    return allocated;
 }
 
-void MyJSON_ArrayFree(MyJSON_Array *array) {
+static void MyJSON_ArrayFree(MyJSON_Array *array) {
     free(array->array);
     free(array);
 }
 
-MyJSON_Dict* MyJSON_DictInit(void) {
+static MyJSON_Dict* MyJSON_DictInit(void) {
     MyJSON_Dict *dict = calloc(1, sizeof *dict);
     dict->maxsize = CONTAINER_DEFAULT_SIZE;
     dict->container = calloc(CONTAINER_DEFAULT_SIZE, sizeof *(dict->container));
     return dict;
 }
 
-MyJSON_DictElement* MyJSON_DictAllocate(MyJSON_Dict *dict) {
+static MyJSON_DictElement* MyJSON_DictAllocate(MyJSON_Dict *dict) {
     if(dict->size == dict->maxsize) {
         uint32_t new_maxsize = (dict->size) * CONTAINER_DEFAULT_GROWTH;
         dict->maxsize = new_maxsize;
         dict->container = realloc(dict->container, sizeof(*(dict->container)) * new_maxsize);
     }
 
-    return &(dict->container[dict->size++]);
+    MyJSON_DictElement *allocated = &(dict->container[dict->size++]);
+    memset(allocated, 0, sizeof(*allocated));
+    return allocated;
 }
 
-void MyJSON_DictFree(MyJSON_Dict *dict) {
+static void MyJSON_DictFree(MyJSON_Dict *dict) {
     for(uint32_t i=0; i<dict->size; i++) {
         free(dict->container[i].key);
     }
