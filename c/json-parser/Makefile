@@ -7,7 +7,12 @@ TESTTARGET = test/obj/test
 ASANOPTIONS = -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all \
 	-fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment
 
-.PHONY: build test clean
+.PHONY: build test clean example
+.SILENT: example
+
+clean:
+	rm -rf test/obj
+	rm -rf lib
 
 build: lib/json_parser.o
 
@@ -23,7 +28,7 @@ ${TESTTARGET}: ${TESTSOURCE}
 test: CFLAGS += -fno-omit-frame-pointer -g3 ${ASANOPTIONS}
 test: build ${TESTTARGET}
 
-
-clean:
-	rm -rf test/obj
-	rm -rf lib
+example: build example/*.c
+	mkdir -p example/obj
+	${CC} -o example/obj/hello example/hello.c lib/json_parser.o ${CFLAGS}
+	./example/obj/hello
