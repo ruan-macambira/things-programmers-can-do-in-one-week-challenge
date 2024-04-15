@@ -7,7 +7,7 @@
 $ make build
 ```
 
-The binary will be generated at `lib/json_parser.o`
+The binary will be generated at `lib/ron.o`
 
 ## Testing
 ```bash
