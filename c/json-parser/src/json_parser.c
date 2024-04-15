@@ -39,6 +39,8 @@ typedef struct MyJSON_DictElement {
     MyJSON_Object value;
 } MyJSON_DictElement;
 
+static void MyJSON_free_(MyJSON_Object*);
+
 static MyJSON_Array* MyJSON_ArrayInit(void) {
     MyJSON_Array *array = calloc(1, sizeof *array);
     array->maxsize = CONTAINER_DEFAULT_SIZE;
@@ -60,6 +62,9 @@ static MyJSON_Object* MyJSON_ArrayAllocate(MyJSON_Array *array) {
 }
 
 static void MyJSON_ArrayFree(MyJSON_Array *array) {
+    for(size_t i=0; i<array->size; i++) {
+        MyJSON_free_(&(array->array[i]));
+    }
     free(array->array);
     free(array);
 }
@@ -86,24 +91,31 @@ static MyJSON_DictElement* MyJSON_DictAllocate(MyJSON_Dict *dict) {
 static void MyJSON_DictFree(MyJSON_Dict *dict) {
     for(uint32_t i=0; i<dict->size; i++) {
         free(dict->container[i].key);
+        MyJSON_free_(&(dict->container[i].value));
     }
     free(dict->container);
     free(dict);
 }
 
 void MyJSON_free(MyJSON_Object *source) {
+    MyJSON_free_(source);
+    free(source);
+}
+
+static void MyJSON_free_(MyJSON_Object *source) {
     switch(source->type) {
     case MyJSON_array:
+        MyJSON_ArrayFree(source->array);
         break;
     case MyJSON_dict:
+        MyJSON_DictFree(source->dict);
         break;
     case MyJSON_string:
+        free(source->string);
         break;
     default:
         break;
     }
-
-    free(source);
 }
 
 enum MyJSON_type MyJSON_type(const MyJSON_Object *source) {
@@ -175,6 +187,8 @@ static bool MyJSON_parseNull(const char *const serialized, MyJSON_Object *object
         return false;
     }
 
+    if(strlen(serialized) < 4) return false;
+
     const char *ptr = serialized;
     if(!MyJSON_ignorewhitespace(serialized, &ptr)) {
         return false;
@@ -193,10 +207,10 @@ static bool MyJSON_parseBool(const char *const serialized, bool *boolean, const 
         return false;
     }
 
-    if(memcmp(ptr, "true", 4) == 0) {
+    if(strlen(ptr) >= 4 && memcmp(ptr, "true", 4) == 0) {
         *endparse = ptr + 4;
         *boolean = true;
-    } else if(memcmp(ptr, "false", 5) == 0) {
+    } else if(strlen(ptr) >= 5 && memcmp(ptr, "false", 5) == 0) {
         *endparse = ptr + 5;
         *boolean = false;
     }
@@ -271,9 +285,10 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
         if(unicode) {
             if(++unicode_i > 4) {
                 strncpy((*string) + length, (const char*)&unicode_chr, 1);
-                *endparse = ptr + 1;
-                *string = realloc(*string, length+1);
-                goto stringParseEnd;
+                ++length;
+                escaped = false;
+                unicode = false;
+                continue;
             }
 
             switch(*ptr) {
@@ -328,10 +343,9 @@ static bool MyJSON_parseString(const char* const serialized, char** string, cons
         ptr++;
     }
 
-    stringParseEnd:
-        if(*endparse > serialized) {
-            return true;
-        }
+    if(*endparse > serialized) {
+        return true;
+    }
 
     stringParseError:
         free(*string);
@@ -506,7 +520,7 @@ bool MyJSON_parseObject(const char* const serialized, MyJSON_Object *object, con
 }
 
 MyJSON_Object* MyJSON_parse(const char* const serialized) {
-    MyJSON_Object *object = malloc(sizeof(*object));
+    MyJSON_Object *object = calloc(1, sizeof(*object));
     const char *endparse = NULL;
 
     bool result = MyJSON_parseObject(serialized, object, &endparse);
