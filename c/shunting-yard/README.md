@@ -1,13 +1,13 @@
-# Reverse Polish Notation
+# Shunting Yard Algorithm
 
-[Reverse Polish Notation](https://en.wikipedia.org/wiki/Reverse_Polish_notation) Calculator
+Infix Notation Calculator implementing the [Shunting Yard Algorithm](https://en.wikipedia.org/wiki/Shunting_yard_algorithm)
 
 ## Building
 ```bash
 $ make build
 ```
 
-The binary will be generated at `lib/ron.o`
+The binary will be generated at `lib/shunting_yard.o`
 
 ## Testing
 ```bash
@@ -17,13 +17,13 @@ $ make test
 ## Examples
 
 ```c
-#include "rpn.h"
+#include "shunting_yard.h"
 
 int main(void) {
     double number;
-    bool success = RPN_tryParse("1 2 3 - +", &number);
+    bool success = SH_trySolve("1 + 2 - 3", &number);
 
-    printf("1 2 3 - + = %lf", number); // 0
+    printf("1 + 2 - 3 = %lf", number); // 0
     return 0;
 }
 ```
